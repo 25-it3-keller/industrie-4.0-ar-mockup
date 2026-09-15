@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Industrie 4.0 AR Mockup - Testpage</title>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0e12;
+      --panel: #10161b;
+      --panel-border: rgba(234, 240, 242, 0.10);
+      --text: #eaf0f2;
+      --text-muted: #7c8a93;
+      --accent: #22d3b0;
+      --accent-dim: rgba(34, 211, 176, 0.18);
+      --warn: #ffb020;
+      --warn-dim: rgba(255, 176, 32, 0.16);
+      --font-ui: 'Space Grotesk', Arial, sans-serif;
+      --font-data: 'IBM Plex Mono', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* Kamera-/Canvas-Darstellung */
+    video, canvas {
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: contain !important;
+    }
+
+    a-scene { position: fixed; inset: 0; }
+
+    /* ---------- Top status bar ---------- */
+    #topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: linear-gradient(to bottom, rgba(10,14,18,0.85), transparent);
+      pointer-events: none;
+    }
+
+    #brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: 0.01em;
+    }
+
+    #brand .mark {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    #brand .mark.tracking {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-dim);
+    }
+
+    #status-text { color: var(--text-muted); font-size: 13px; }
+
+    #clock {
+      font-family: var(--font-data);
+      font-size: 13px;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* ---------- Scan reticle ---------- */
+    #reticle {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: min(64vw, 420px);
+      height: min(64vw, 420px);
+      transform: translate(-50%, -50%);
+      z-index: 5;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    #reticle.hidden { opacity: 0; }
+
+    #reticle svg { width: 100%; height: 100%; overflow: visible; }
+    #reticle path { stroke: var(--text-muted); }
+    #reticle.tracking path { stroke: var(--accent); }
+
+    #reticle .hint {
+      position: absolute;
+      bottom: -34px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ---------- Info card ---------- */
+    #card {
+      position: fixed;
+      left: 18px;
+      right: 18px;
+      bottom: 96px;
+      z-index: 20;
+      max-width: 360px;
+      background: rgba(16, 22, 27, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--panel-border);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 14px 16px;
+      transform: translateY(16px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    #card.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    #card .row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 5px 0;
+    }
+
+    #card .row + .row { border-top: 1px solid var(--panel-border); }
+
+    #card .label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    #card .value {
+      font-family: var(--font-data);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    #card .value.pill {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    /* ---------- Bottom control dock ---------- */
+    #dock {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      padding: 16px 18px 20px;
+      background: linear-gradient(to top, rgba(10,14,18,0.9), transparent);
+    }
+
+    #dock button {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 7px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    #dock button:hover { border-color: rgba(234,240,242,0.25); }
+    #dock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    #dock button.primary {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #card, #reticle, #brand .mark { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <a-scene
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true"
+    embedded
+    arjs="sourceType: webcam; facingMode: environment; sourceWidth: 1280; sourceHeight: 720; displayWidth: 1280; displayHeight: 720; canvasWidth: 1280; canvasHeight: 720; detectionMode: mono_and_matrix; matrixCodeType: 3x3; maxDetectionRate: 60; debugUIEnabled: false;">
+    <a-marker preset="hiro" id="hiro-marker"
+              smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
+      <a-entity id="marker-frame" visible="false" position="0 0.002 0" scale="0.01 0.01 0.01"
+                animation__in="property: scale; to: 1 1 1; dur: 450; easing: easeOutElastic; startEvents: show-frame"
+                animation__out="property: scale; to: 0.01 0.01 0.01; dur: 220; easing: easeInBack; startEvents: hide-frame">
+
+        <!-- rotierender Scan-Ring -->
+        <a-ring radius-inner="0.60" radius-outer="0.64" rotation="-90 0 0"
+                material="color: #22d3b0; opacity: 0.35; shader: flat; side: double; transparent: true"
+                animation="property: rotation; to: -90 0 360; loop: true; dur: 7000; easing: linear"></a-ring>
+
+        <!-- dünne Konturlinie -->
+        <a-entity line="start: -0.55 0 -0.55; end: 0.55 0 -0.55; color: #22d3b0; opacity: 0.55"></a-entity>
+        <a-entity line="start: 0.55 0 -0.55; end: 0.55 0 0.55; color: #22d3b0; opacity: 0.55"></a-entity>
+        <a-entity line="start: 0.55 0 0.55; end: -0.55 0 0.55; color: #22d3b0; opacity: 0.55"></a-entity>
+        <a-entity line="start: -0.55 0 0.55; end: -0.55 0 -0.55; color: #22d3b0; opacity: 0.55"></a-entity>
+
+        <!-- Eckenbrackets (heller, wie das 2D-Reticle) -->
+        <a-box position="-0.46 0 -0.55" width="0.18" height="0.015" depth="0.03" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+        <a-box position="-0.55 0 -0.46" width="0.03" height="0.015" depth="0.18" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+
+        <a-box position="0.46 0 -0.55" width="0.18" height="0.015" depth="0.03" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+        <a-box position="0.55 0 -0.46" width="0.03" height="0.015" depth="0.18" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+
+        <a-box position="0.46 0 0.55" width="0.18" height="0.015" depth="0.03" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+        <a-box position="0.55 0 0.46" width="0.03" height="0.015" depth="0.18" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+
+        <a-box position="-0.46 0 0.55" width="0.18" height="0.015" depth="0.03" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+        <a-box position="-0.55 0 0.46" width="0.03" height="0.015" depth="0.18" material="color: #22d3b0; emissive: #22d3b0; emissiveIntensity: 0.6; shader: flat"></a-box>
+      </a-entity>
+    </a-marker>
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <div id="topbar">
+    <div id="brand">
+      <span class="mark" id="brand-mark"></span>
+      <span>AR Inspector</span>
+    </div>
+    <div id="status-text">Marker wird gesucht …</div>
+    <div id="clock">00:00:00</div>
+  </div>
+
+  <div id="reticle">
+    <svg viewBox="0 0 100 100" fill="none" stroke-width="3" stroke-linecap="round">
+      <path d="M4 20 V6 H18" />
+      <path d="M82 6 H96 V20" />
+      <path d="M96 80 V94 H82" />
+      <path d="M18 94 H4 V80" />
+    </svg>
+    <div class="hint">Marker im Bild zentrieren</div>
+  </div>
+
+  <div id="card">
+    <div class="row">
+      <span class="label">Objekt</span>
+      <span class="value">Hiro-Marker</span>
+    </div>
+    <div class="row">
+      <span class="label">Status</span>
+      <span class="value pill">Erfasst</span>
+    </div>
+    <div class="row">
+      <span class="label">Erkennungen</span>
+      <span class="value" id="marker-count">0</span>
+    </div>
+    <div class="row">
+      <span class="label">Zuletzt erkannt</span>
+      <span class="value" id="last-seen">–</span>
+    </div>
+  </div>
+
+  <div id="dock">
+    <button id="btn-found" class="primary">Marker gefunden simulieren</button>
+    <button id="btn-lost">Marker verloren simulieren</button>
+  </div>
+
+  <script>
+    const hiroMarker = document.getElementById('hiro-marker');
+    const markerFrame = document.getElementById('marker-frame');
+    const card = document.getElementById('card');
+    const markerCount = document.getElementById('marker-count');
+    const lastSeen = document.getElementById('last-seen');
+    const brandMark = document.getElementById('brand-mark');
+    const statusText = document.getElementById('status-text');
+    const reticle = document.getElementById('reticle');
+    const clock = document.getElementById('clock');
+    let markerFoundCount = 0;
+
+    function timeNow() {
+      return new Date().toLocaleTimeString('de-DE', { hour12: false });
+    }
+
+    function tickClock() {
+      clock.textContent = timeNow();
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    hiroMarker.addEventListener('markerFound', () => {
+      console.debug('Marker found');
+      markerFoundCount += 1;
+      markerCount.textContent = markerFoundCount;
+      lastSeen.textContent = timeNow();
+      markerFrame.setAttribute('visible', true);
+      markerFrame.emit('show-frame');
+      card.classList.add('visible');
+      brandMark.classList.add('tracking');
+      reticle.classList.add('tracking', 'hidden');
+      statusText.textContent = 'Marker erfasst';
+    });
+
+    hiroMarker.addEventListener('markerLost', () => {
+      console.debug('Marker lost');
+      markerFrame.emit('hide-frame');
+      markerFrame.addEventListener('animationcomplete__out', function hideFrame() {
+        markerFrame.setAttribute('visible', false);
+        markerFrame.removeEventListener('animationcomplete__out', hideFrame);
+      });
+      card.classList.remove('visible');
+      brandMark.classList.remove('tracking');
+      reticle.classList.remove('tracking', 'hidden');
+      statusText.textContent = 'Marker wird gesucht …';
+    });
+
+    /* global functions for debugging, wired to the dock buttons */
+    window.fireEventMarkerFound = () => {
+      hiroMarker.dispatchEvent(new CustomEvent('markerFound'));
+    };
+
+    window.fireEventMarkerLost = () => {
+      hiroMarker.dispatchEvent(new CustomEvent('markerLost'));
+    };
+
+    document.getElementById('btn-found').addEventListener('click', window.fireEventMarkerFound);
+    document.getElementById('btn-lost').addEventListener('click', window.fireEventMarkerLost);
+  </script>
+</body>
+</html>
