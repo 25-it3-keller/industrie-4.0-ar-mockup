@@ -49,7 +49,7 @@
   </a-scene>
 
   <div id="overlay">
-    <div id="marker-count">Times the Marker was found: 0</div>
+    <div id="marker-count">The Marker was not yet found</div>
   </div>
 
   <script>
@@ -61,7 +61,7 @@
     hiroMarker.addEventListener('markerFound', () => {
       console.debug('Marker found');
       markerFoundCount += 1;
-      markerCount.textContent = `Times the Marker was found: ${markerFoundCount}`;
+      markerCount.textContent = `The Marker was found the ${markerFoundCount} time`;
       overlay.style.display = 'block';
     });
 
